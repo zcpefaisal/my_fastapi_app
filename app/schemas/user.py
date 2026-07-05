@@ -49,3 +49,29 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True # It helps convert SQLAlchemy objects to JSON
+
+
+class UserBasicResponse(BaseModel):
+    id: int
+    email: EmailStr
+    is_active: bool
+    profile: Optional[UserProfileResponse] = None  # Nested profile data
+
+    class Config:
+        from_attributes = True  # It helps convert SQLAlchemy objects to JSON
+
+
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    alternate_email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    alternate_phone: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+
+    class Config:
+        from_attributes = True  # It helps convert SQLAlchemy objects to JSON

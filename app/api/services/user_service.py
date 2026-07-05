@@ -1,8 +1,8 @@
 import os
 import shutil
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.models.user import User, UserProfile
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password
 from fastapi import UploadFile, HTTPException, status
 
@@ -40,6 +40,9 @@ class UserService:
             db.rollback()
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error creating user profile: {str(e)}")
 
+    @staticmethod
+    def get_all_users_basic(db: Session, skip: int = 0, limit: int = 10):
+        return db.query(User).options(joinedload(User.profile)).offset(skip).limit(limit).all()
 
     @staticmethod
     def get_user_by_email(db: Session, email: str):
@@ -48,6 +51,7 @@ class UserService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         return db_user
     
+
 
     @staticmethod
     def upload_documents(db: Session, user_id: int, profile_image: UploadFile = None, cv_file: UploadFile = None):
@@ -94,6 +98,23 @@ class UserService:
     
 
     @staticmethod
+    def update_user_profile(db: Session, current_user_id: int, update_data: UserUpdate):
+        # Check if this user profile is in the database.
+        profile = db.query(UserProfile).filter(UserProfile.user_id == current_user_id).first()
+        if not profile:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found")
+        
+        # Update the profile fields with the provided data (only those that are not None)
+        data_dict = update_data.model_dump(exclude_unset=True)
+        for key, value in data_dict.items():
+            setattr(profile, key, value) # Set the attribute of the profile object to the new value
+
+        db.commit()
+        db.refresh(profile)
+        return profile
+    
+
+    @staticmethod
     def authenticate_user(db: Session, email: str, password: str):
         # Find users by email
         user = db.query(User).filter(User.email == email).first()
@@ -105,3 +126,11 @@ class UserService:
             return False
         
         return user
+    
+
+    @staticmethod
+    def delete_user_account(db: Session, current_user: User):
+        # Delete the user account
+        db.delete(current_user)
+        db.commit()
+        return {"message": "User account and associated profile deleted successfully"}
