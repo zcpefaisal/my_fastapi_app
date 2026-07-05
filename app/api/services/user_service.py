@@ -3,7 +3,7 @@ import shutil
 from sqlalchemy.orm import Session
 from app.models.user import User, UserProfile
 from app.schemas.user import UserCreate
-from app.core.security import get_password_hash
+from app.core.security import get_password_hash, verify_password
 from fastapi import UploadFile, HTTPException, status
 
 UPLOAD_DIR = "media"
@@ -91,3 +91,17 @@ class UserService:
             "profile_image_url": profile.profile_image_url, 
             "cv_url": profile.cv_url
         }
+    
+
+    @staticmethod
+    def authenticate_user(db: Session, email: str, password: str):
+        # Find users by email
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            return False
+        
+        # Verify password
+        if not verify_password(password, user.hashed_password):
+            return False
+        
+        return user

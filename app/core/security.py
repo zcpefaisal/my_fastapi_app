@@ -1,5 +1,12 @@
+from datetime import timedelta, datetime, timezone
+from typing import Union, Any
+from jose import jwt
 from passlib.context import CryptContext
 import bcrypt
+
+SECRET_KEY = "SUPER_SECRET_KEY_FOR_DEVELOPMENT_ONLY"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
@@ -18,3 +25,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     password_bytes = plain_password.encode('utf-8')  # Convert to bytes
     hashed_password_bytes = hashed_password.encode('utf-8')  # Convert to bytes
     return bcrypt.checkpw(password_bytes, hashed_password_bytes)  # Verify the password
+
+
+def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode = {"exp": expire, "sub": str(subject)}
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
