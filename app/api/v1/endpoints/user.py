@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File, Request
 from typing import List
 from sqlalchemy.orm import Session
 from app.schemas.user import UserCreate, UserResponse, UserUpdate, UserBasicResponse
@@ -6,21 +6,26 @@ from app.models.user import User
 from app.core.database import get_db
 from app.api.services.user_service import UserService
 from app.api.v1.endpoints.deps import get_current_user
+# Importing the rate limiter
+from app.core.limiter import limiter
 
 router = APIRouter()
 
 # URL: /api/v1/users/
 @router.post("/", response_model=UserResponse)
-def create_user(user_req: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("5/minute") # Limit to 5 requests per minute
+def create_user(request: Request, user_req: UserCreate, db: Session = Depends(get_db)):
     return UserService.create_user(db=db, user_data=user_req)
 
 @router.get("/", response_model=List[UserBasicResponse])
-def get_all_users_basic(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+@limiter.limit("20/minute") # Limit to 20 requests per minute
+def get_all_users_basic(request: Request, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     return UserService.get_all_users_basic(db=db, skip=skip, limit=limit)
 
 # URL: /api/v1/users/{email}
 @router.get("/{email}", response_model=UserResponse)
-def get_user(email: str, db: Session = Depends(get_db)):
+@limiter.limit("10/minute") # Limit to 10 requests per minute
+def get_user(request: Request, email: str, db: Session = Depends(get_db)):
     return UserService.get_user_by_email(db=db, email=email)
 
 # URL: /api/v1/users/{user_id}/upload-docs

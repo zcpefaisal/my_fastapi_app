@@ -12,6 +12,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  my_fastapi_app_redis:
+    image: redis:7-alpine
+    container_name: my_fastapi_app_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
   web:
     build: .
     container_name: my_fastapi_app_web
@@ -30,6 +37,7 @@ services:
       - ./media:/app/media
     depends_on:
       - postgres-db
+      - my_fastapi_app_redis
     restart: always
 
 volumes:
