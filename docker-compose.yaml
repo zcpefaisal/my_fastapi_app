@@ -19,6 +19,18 @@ services:
       - "6379:6379"
     restart: always
 
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: my_fastapi_app_redis_insight
+    ports:
+      - "5504:5540"
+    volumes:
+      - redis_insight_data:/data
+    depends_on:
+      - my_fastapi_app_redis
+
+  
   web:
     build: .
     container_name: my_fastapi_app_web
@@ -42,3 +54,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_insight_data:
