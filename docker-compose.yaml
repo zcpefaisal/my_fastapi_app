@@ -1,4 +1,6 @@
 services:
+
+  # --- PostgreSQL Database ---
   postgres-db:
     image: postgres:15-alpine
     container_name: my_fastapi_app_postgres_db
@@ -11,15 +13,21 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
 
+  # --- Redis ---
   my_fastapi_app_redis:
     image: redis:7-alpine
     container_name: my_fastapi_app_redis
     ports:
       - "6379:6379"
     restart: always
+    networks:
+      - app-network
 
 
+  # --- RedisInsight (Redis GUI) ---
   redis-insight:
     image: redis/redisinsight:latest
     container_name: my_fastapi_app_redis_insight
@@ -29,8 +37,11 @@ services:
       - redis_insight_data:/data
     depends_on:
       - my_fastapi_app_redis
+    networks:
+      - app-network
 
-  
+
+  # --- FastAPI Application ---
   web:
     build: .
     container_name: my_fastapi_app_web
@@ -51,7 +62,69 @@ services:
       - postgres-db
       - my_fastapi_app_redis
     restart: always
+    networks:
+      - app-network
+
+
+  # --- Apache Kafka (KRaft Mode) ---
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: enterprise_kafka
+    ports:
+      - "9092:9092"   # External port to connect to Host
+      - "9101:9101"   # Metrics port for monitoring
+    environment:
+      # KRaft Mode and Controller Broker Configuration
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_OFFERS_TO_CONTROLLER_AS_VOTER: 'true'
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/var/lib/kafka/data'
+      # KRaft Cluster ID (This should be generated once and reused for the cluster)
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      
+      # Enterprise Kafka Configuration and tuning parameters
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REREPLICATION_FACTOR: 1
+
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - app-network # The name of the current Docker network
+    restart: unless-stopped
+
+  # --- Kafka UI (Topics and Messages Visualization) ---
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: enterprise_kafka_ui
+    ports:
+      - "8080:8080" # Port for browser access
+    environment:
+      KAFKA_CLUSTERS_0_NAME: 'enterprise-cluster'
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka:29092'
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9101
+    networks:
+      - app-network
+    depends_on:
+      - kafka
+
+
+
+
 
 volumes:
   postgres_data:
   redis_insight_data:
+  kafka_data:
+
+
+networks:
+  app-network:
+    driver: bridge
